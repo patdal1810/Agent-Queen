@@ -42,7 +42,7 @@ async def verify(request: Request):
 def test_send():
     # use your WA ID exactly as it appears in the logs, e.g. "2348100251810"
     test_number = "2348100251810"
-    send_whatsapp_message(test_number, "Test from FastAPI 🔥")
+    send_whatsapp_message(test_number, "Test from FastAPI")
     return {"status": "sent_test_message"}
 
 @app.post("/webhook")
@@ -87,7 +87,7 @@ async def receive_message(request: Request):
 
 
 def send_whatsapp_message(to_number: str, text: str):
-    url = f"https://graph.facebook.com/v20.0/{PHONE_NUMBER_ID}/messages"
+    url = f"https://graph.facebook.com/v24.0/{PHONE_NUMBER_ID}/messages"
 
     headers = {
         "Authorization": f"Bearer {WHATSAPP_TOKEN}",
