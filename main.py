@@ -38,6 +38,13 @@ async def verify(request: Request):
     return PlainTextResponse(content="Verification token mismatch", status_code=403)
 
 
+@app.get("/test-send")
+def test_send():
+    # use your WA ID exactly as it appears in the logs, e.g. "2348100251810"
+    test_number = "2348100251810"
+    send_whatsapp_message(test_number, "Test from FastAPI 🔥")
+    return {"status": "sent_test_message"}
+
 @app.post("/webhook")
 async def receive_message(request: Request):
     """
@@ -101,7 +108,7 @@ def send_whatsapp_message(to_number: str, text: str):
     response = requests.post(url, headers=headers, json=payload)
     print("WhatsApp send response:", response.status_code, response.text)
 
-    
+
 if __name__ == "__main__":
     # For local dev only:
     import uvicorn
