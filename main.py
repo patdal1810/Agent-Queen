@@ -80,9 +80,6 @@ async def receive_message(request: Request):
 
 
 def send_whatsapp_message(to_number: str, text: str):
-    """
-    Sends a text message using WhatsApp Cloud API.
-    """
     url = f"https://graph.facebook.com/v20.0/{PHONE_NUMBER_ID}/messages"
 
     headers = {
@@ -97,10 +94,14 @@ def send_whatsapp_message(to_number: str, text: str):
         "text": {"body": text},
     }
 
+    print("Sending to:", to_number)
+    print("URL:", url)
+    print("Payload:", payload)
+
     response = requests.post(url, headers=headers, json=payload)
     print("WhatsApp send response:", response.status_code, response.text)
 
-
+    
 if __name__ == "__main__":
     # For local dev only:
     import uvicorn
