@@ -74,24 +74,33 @@ def run_support_agent(channel: str, message: str) -> SupportResult:
     """
     Sends the customer message to the AI and returns a SupportResult object.
     """
-    prompt = f"{INSTRUCTION}\n\nChannel: {channel}\nMessage: {message}"
+    
+    # 📝 Use the messages list structure for Chat Completions API
+    messages = [
+        {"role": "system", "content": INSTRUCTION},
+        {"role": "user", "content": f"Channel: {channel}\nMessage: {message}"}
+    ]
 
-    response = client.responses.create(
-        model="gpt-4o-mini",
-        input=prompt,
-    )
-
-    raw_text = response.output_text
-
-    # Attempt to parse the JSON answer
     try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            # ✨ CRITICAL: Force the model to output valid JSON
+            response_format={"type": "json_object"}
+        )
+
+        # 📝 Access the content using the new structure
+        raw_text = response.choices[0].message.content
+
+        # Attempt to parse the JSON answer
         data = json.loads(raw_text)
-    except json.JSONDecodeError:
+
+    except Exception: # Catch both API errors and JSONDecodeError
         # If something goes wrong, fall back to a safe default
         data = {
             "urgency": "NOT URGENT",
             "intent": "Other",
-            "summary": "Could not parse AI response correctly.",
+            "summary": "Could not parse AI response or an API error occurred.",
             "reply": "Hi! Thanks for your message. We’re having a small issue with our assistant. Please try again or contact support directly.",
         }
 
