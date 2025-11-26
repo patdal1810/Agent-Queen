@@ -14,48 +14,50 @@ app = FastAPI()
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
+# Assuming you added TEST_NUMBER as recommended for good practice
+TEST_NUMBER = os.getenv("TEST_NUMBER")
 
 
 @app.get("/webhook", response_class=PlainTextResponse)
 async def verify(request: Request):
     """
     Meta calls this GET endpoint once when you configure the Webhook.
-    We must:
-    - Check that the verify_token matches
-    - If ok, return the hub.challenge as plain text with 200 status
     """
     mode = request.query_params.get("hub.mode")
     token = request.query_params.get("hub.verify_token")
     challenge = request.query_params.get("hub.challenge")
 
-    print("Webhook verification:", mode, token, challenge)
+    print(f"--- Webhook Verification Request: Mode={mode}, Token={token}, Challenge={challenge} ---")
 
     if mode == "subscribe" and token == VERIFY_TOKEN and challenge:
-        # THIS is what Meta expects to verify the webhook
+        print("WEBHOOK VERIFIED. Sending challenge back.")
         return PlainTextResponse(content=challenge, status_code=200)
 
-    # If token doesn't match, return 403
+    print("Verification failed: Token mismatch or invalid mode.")
     return PlainTextResponse(content="Verification token mismatch", status_code=403)
 
 
 @app.get("/test-send")
 def test_send():
-    # use your WA ID exactly as it appears in the logs, e.g. "2348100251810"
-    test_number = "2348100251810"
-    send_whatsapp_message(test_number, "Test from FastAPI")
+    if not TEST_NUMBER:
+        print("Error: TEST_NUMBER environment variable is not set.")
+        return {"status": "error", "message": "TEST_NUMBER environment variable is not set."}
+
+    print(f"Initiating test message send to: {TEST_NUMBER}")
+    send_whatsapp_message(TEST_NUMBER, "Test from FastAPI")
     return {"status": "sent_test_message"}
+
+# ----------------------------------------------------------------------
 
 @app.post("/webhook")
 async def receive_message(request: Request):
     """
     WhatsApp sends all incoming messages here as JSON (POST).
-    We:
-    - Extract sender & message text
-    - Pass it to the AI
-    - Send reply back via WhatsApp API
     """
     data = await request.json()
-    print("Incoming WhatsApp data:", data)
+    print("\n--- INCOMING WHATSAPP PAYLOAD START ---")
+    print(data)
+    print("--- INCOMING WHATSAPP PAYLOAD END ---")
 
     try:
         entry = data["entry"][0]["changes"][0]["value"]
@@ -63,28 +65,39 @@ async def receive_message(request: Request):
         # Only handle messages (ignore status updates, etc.)
         if "messages" in entry:
             message = entry["messages"][0]
-            sender = message["from"]           # WhatsApp number
+            sender = message["from"]        # WhatsApp number
             msg_type = message["type"]
 
             if msg_type == "text":
                 text = message["text"]["body"]
-                print(f"From {sender}: {text}")
+                
+                # Log the extracted incoming message
+                print(f"--- Incoming Text Message from {sender}: {text} ---")
 
                 # Pass to AI Customer Service Agent
                 result = run_support_agent("WhatsApp", text)
 
-                print("AI urgency:", result.urgency)
-                print("AI intent:", result.intent)
+                print("AI Classification:")
+                print(f"  Urgency: {result.urgency}")
+                print(f"  Intent: {result.intent}")
 
                 reply_text = result.reply
-
+                
+                # Log the outgoing message before sending
+                print(f"--- Outgoing Reply to {sender}: {reply_text} ---")
+                
                 send_whatsapp_message(sender, reply_text)
+            
+            else:
+                print(f"Non-text message received: {msg_type}. Skipping agent processing.")
+
 
     except Exception as e:
-        print("Error handling incoming message:", e)
+        print(f"ERROR handling incoming message: {e}")
 
     return {"status": "received"}
 
+# ----------------------------------------------------------------------
 
 def send_whatsapp_message(to_number: str, text: str):
     url = f"https://graph.facebook.com/v24.0/{PHONE_NUMBER_ID}/messages"
@@ -101,12 +114,14 @@ def send_whatsapp_message(to_number: str, text: str):
         "text": {"body": text},
     }
 
-    print("Sending to:", to_number)
-    print("URL:", url)
-    print("Payload:", payload)
-
+    print("\n--- SENDING MESSAGE VIA API START ---")
+    # print("URL:", url) # Keep this commented out unless needed for security/clean logs
+    # print("Payload:", payload) # Keep this commented out unless needed for security/clean logs
+    
     response = requests.post(url, headers=headers, json=payload)
-    print("WhatsApp send response:", response.status_code, response.text)
+    print(f"WhatsApp API Response Status: {response.status_code}")
+    print(f"Response Text: {response.text}")
+    print("--- SENDING MESSAGE VIA API END ---\n")
 
 
 if __name__ == "__main__":
